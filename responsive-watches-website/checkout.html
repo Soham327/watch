@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="shortcut icon" href="assets/img/favicon.png" type="image/x-icon" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <title>Checkout - Watches</title>
+  <style>
+    .checkout { padding-top: 7rem; padding-bottom: 4rem; }
+    .checkout__card { background: var(--container-color); border-radius: 1rem; padding:1.25rem; box-shadow: 0 4px 16px rgba(0,0,0,.08) }
+    .checkout__row { display:grid; grid-template-columns:1fr; gap:1.5rem }
+    .checkout__summary { display:grid; gap:1rem }
+    .checkout__list { display:grid; gap:.75rem }
+    .checkout__item { display:flex; align-items:center; justify-content:space-between }
+    .checkout__total { display:flex; align-items:center; justify-content:space-between; font-weight:700; margin-top:.5rem }
+    .checkout__pay { display:grid; gap:.75rem; margin-top:1rem }
+    .checkout__btn { width:100% }
+    @media(min-width:768px){ .checkout__row{ grid-template-columns:1.3fr .7fr } }
+    .muted{ opacity:.7; font-size:.9rem }
+    .inline{ display:flex; gap:.5rem; align-items:center }
+  </style>
+</head>
+<body>
+  <header class="header" id="header">
+    <nav class="nav container">
+      <a href="index.html" class="nav__logo">
+        <i class='bx bxs-watch nav__logo-icon'></i> Rolex
+      </a>
+      <div class="nav__btns">
+        <a class="button button--gray" href="index.html">Back</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="main">
+    <section class="checkout container">
+      <h2 class="section__title">Checkout</h2>
+
+      <div class="checkout__row">
+        <div class="checkout__card">
+          <h3 class="section__title" style="font-size:1.125rem;margin-bottom:.75rem">Order summary</h3>
+          <div id="summary" class="checkout__summary">
+            <div class="checkout__list" id="summary-list"></div>
+            <div class="checkout__total">
+              <span>Total</span>
+              <span id="summary-total">$0.00</span>
+            </div>
+            <div class="muted inline"><span id="items-count">0</span> items</div>
+          </div>
+        </div>
+
+        <div class="checkout__card">
+          <h3 class="section__title" style="font-size:1.125rem;margin-bottom:.75rem">Payment</h3>
+          <p class="muted">Select a payment option. For card payments this page redirects to a secure hosted checkout.</p>
+          <div class="checkout__pay">
+            <button id="pay-stripe" class="button checkout__btn">Pay with Card</button>
+            <a id="pay-paypal" class="button button--gray checkout__btn" href="#" target="_blank" rel="noopener">Pay with PayPal</a>
+            <button id="pay-fake" class="button checkout__btn" style="background: var(--first-color);">Fake Payment (Test)</button>
+            <p class="muted">Note: Replace the placeholders in this page with your real payment links to go live. The Fake Payment option is for testing only.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Fake Payment Modal -->
+  <div id="fakeModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:1000">
+    <div style="background:var(--container-color);padding:1rem;border-radius:.75rem;min-width:300px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+      <h3 style="margin:0 0 .5rem 0">Fake Payment</h3>
+      <p class="muted" style="margin:0 0 1rem 0">Enter any details to simulate a successful payment.</p>
+      <form id="fakeForm" class="checkout__summary" style="gap:.5rem">
+        <label>
+          <span class="muted">Card Number</span>
+          <input id="fakeCard" type="text" inputmode="numeric" placeholder="4242 4242 4242 4242" style="width:100%;padding:.6rem;border:1px solid var(--text-color-light);border-radius:.5rem;background:transparent;color:var(--text-color)" required>
+        </label>
+        <div class="inline" style="gap:.75rem">
+          <label style="flex:1">
+            <span class="muted">Expiry</span>
+            <input id="fakeExp" type="text" placeholder="12/34" style="width:100%;padding:.6rem;border:1px solid var(--text-color-light);border-radius:.5rem;background:transparent;color:var(--text-color)" required>
+          </label>
+          <label style="flex:1">
+            <span class="muted">CVC</span>
+            <input id="fakeCvc" type="text" inputmode="numeric" placeholder="123" style="width:100%;padding:.6rem;border:1px solid var(--text-color-light);border-radius:.5rem;background:transparent;color:var(--text-color)" required>
+          </label>
+        </div>
+        <div class="inline" style="justify-content:flex-end;margin-top:.5rem">
+          <button type="button" id="fakeCancel" class="button button--gray">Cancel</button>
+          <button type="submit" id="fakePay" class="button">Pay Now</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footer section">
+    <div class="footer__container container grid">
+      <div class="footer__content"><h3 class="footer__title">Secure checkout</h3><ul class="footer__list"><li>256-bit TLS</li><li>PCI compliant (provider)</li></ul></div>
+    </div>
+    <span class="footer__copy">© SOHAM. All rights reserved</span>
+  </footer>
+
+  <script>
+    const CART_KEY = 'site_cart_v1';
+    function loadCart(){ try{ const raw = localStorage.getItem(CART_KEY); return raw?JSON.parse(raw):[] }catch(e){ return [] } }
+    function formatCurrency(v){ const n = parseFloat(String(v).replace(/[^0-9.\-]/g,''))||0; return '$' + n.toFixed(2); }
+
+    function renderSummary(){
+      const listEl = document.getElementById('summary-list');
+      const totalEl = document.getElementById('summary-total');
+      const countEl = document.getElementById('items-count');
+      let items = loadCart();
+      // Fallback: if cart is empty, try to use the order referenced by ?orderId=
+      if(!items || !items.length){
+        const params = new URLSearchParams(location.search);
+        const orderId = params.get('orderId');
+        if(orderId){
+          try{
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const ord = orders.find(o => String(o.id) === String(orderId));
+            if(ord && Array.isArray(ord.items) && ord.items.length){ items = ord.items; }
+          }catch(e){}
+        }
+      }
+      listEl.innerHTML = '';
+      let total = 0, count = 0;
+      items.forEach(it => {
+        const line = document.createElement('div');
+        line.className = 'checkout__item';
+        const price = (parseFloat(String(it.price).replace(/[^0-9.\-]/g,''))||0) * (it.qty||0);
+        total += price; count += (it.qty||0);
+        line.innerHTML = `<span>${(it.qty||0)} × ${escapeHtml(it.name)}</span><span>${formatCurrency(price)}</span>`;
+        listEl.appendChild(line);
+      });
+      totalEl.textContent = formatCurrency(total);
+      countEl.textContent = count;
+      return {items,total,count};
+    }
+
+    function escapeHtml(s){ if(!s && s!==0) return ''; return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
+
+    function getStripePaymentLink(){
+      // Replace with your Stripe Payment Link URL, e.g., 'https://buy.stripe.com/test_XXXXXXXX'
+      return localStorage.getItem('STRIPE_PAYMENT_LINK') || 'https://buy.stripe.com/test_placeholderPaymentLink';
+    }
+
+    function getPayPalLink(){
+      // Replace with your PayPal hosted button or payment link URL
+      return localStorage.getItem('PAYPAL_PAYMENT_LINK') || 'https://www.paypal.com/checkoutnow?token=TEST_PLACEHOLDER';
+    }
+
+    function redirectWithCart(baseUrl){
+      const {items,total} = renderSummary();
+      const params = new URLSearchParams();
+      params.set('amount_hint', total.toFixed(2));
+      if(items && items.length){ params.set('desc', items.slice(0,3).map(i=>`${i.qty}x ${i.name}`).join(', ')); }
+      const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + params.toString();
+      window.location.href = url;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderSummary();
+      const stripeBtn = document.getElementById('pay-stripe');
+      if(stripeBtn){
+        stripeBtn.addEventListener('click', () => {
+          const link = getStripePaymentLink();
+          if(!link || /placeholder/i.test(link)){
+            alert('Stripe Payment Link is not set. Open the console for setup steps.');
+            console.log('Set your Stripe Payment Link with: localStorage.setItem("STRIPE_PAYMENT_LINK", "https://buy.stripe.com/your_link")');
+            return;
+          }
+          redirectWithCart(link);
+        });
+      }
+
+      const pp = document.getElementById('pay-paypal');
+      const ppLink = getPayPalLink();
+      if(pp){
+        if(!ppLink || /placeholder|checkoutnow\?token=TEST_PLACEHOLDER/i.test(ppLink)){
+          pp.addEventListener('click', (e)=>{ e.preventDefault(); alert('PayPal link not set. Set with localStorage.setItem("PAYPAL_PAYMENT_LINK", "https://www.paypal.com/checkoutnow?token=YOUR_ID")'); });
+        }else{
+          pp.href = ppLink;
+          pp.addEventListener('click', (e)=>{ e.preventDefault(); redirectWithCart(ppLink); });
+        }
+      }
+
+      // Fake Payment wiring
+      const fakeBtn = document.getElementById('pay-fake');
+      const modal = document.getElementById('fakeModal');
+      const form = document.getElementById('fakeForm');
+      const cancel = document.getElementById('fakeCancel');
+
+      function openModal(){ if(modal) modal.style.display = 'flex'; }
+      function closeModal(){ if(modal) modal.style.display = 'none'; }
+
+      if(fakeBtn) fakeBtn.addEventListener('click', openModal);
+      if(cancel) cancel.addEventListener('click', closeModal);
+      if(modal){ modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); }); }
+
+      if(form){
+        form.addEventListener('submit', (e)=>{
+          e.preventDefault();
+          const { total } = renderSummary();
+          const btn = document.getElementById('fakePay');
+          const original = btn ? btn.textContent : '';
+          if(btn){ btn.disabled = true; btn.textContent = 'Processing...'; }
+          setTimeout(()=>{
+            if(btn){ btn.disabled = false; btn.textContent = original; }
+            closeModal();
+            try{
+              const ORDERS_KEY = 'orders';
+              const orders = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+              const success = {
+                id: Date.now(),
+                date: new Date().toLocaleString(),
+                total: '$' + (parseFloat(total)||0).toFixed(2),
+                items: loadCart(),
+                status: 'paid (fake)'
+              };
+              orders.push(success);
+              localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+            }catch(err){}
+            localStorage.removeItem('site_cart_v1');
+            alert('Payment successful (fake). Thank you for your order!');
+            window.location.href = 'index.html';
+          }, 800);
+        });
+      }
+    });
+  </script>
+</body>
+</html>

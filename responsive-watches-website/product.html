@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="shortcut icon" href="assets/img/favicon.png" type="image/x-icon" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@latest/css/boxicons.min.css" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <title>Product Details</title>
+  <style>
+    .product-detail{padding-top:7rem}
+    .product-detail__container{display:grid;gap:2rem}
+    @media(min-width:768px){.product-detail__container{grid-template-columns:1fr 1fr;align-items:center}}
+    .product-detail__img{width:100%;max-width:420px;display:block;margin:0 auto}
+    .product-detail__title{font-size:1.75rem;margin:.5rem 0}
+    .product-detail__price{font-weight:600;font-size:1.25rem}
+    .product-detail__desc{opacity:.8;margin:1rem 0}
+    .product-detail__meta{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}
+    .product-detail__badges{display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0}
+    .badge{font-size:.75rem;padding:.25rem .5rem;border:1px solid currentColor;border-radius:999px;opacity:.85}
+    .product-specs{margin:1.25rem 0}
+    .product-specs h4{margin-bottom:.5rem}
+    .product-specs ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr;gap:.35rem}
+    @media(min-width:768px){.product-specs ul{grid-template-columns:1fr 1fr}}
+    .product-specs li{opacity:.9}
+    .product-detail__back{display:inline-flex;align-items:center;gap:.5rem;margin-top:1rem}
+  </style>
+</head>
+<body>
+  <header class="header" id="header">
+    <nav class="nav container">
+      <a href="index.html" class="nav__logo">
+        <i class='bx bxs-watch nav__logo-icon'></i> Rolex
+      </a>
+      <div class="nav__btns">
+        <i class='bx bx-moon change-theme' id="theme-button"></i>
+        <div class="nav__shop" id="cart-shop"><i class='bx bx-shopping-bag'></i></div>
+      </div>
+    </nav>
+  </header>
+
+  <div class="cart" id="cart">
+    <i class='bx bx-x cart__close' id="cart-close"></i>
+    <h2 class="cart__title-center">My Cart</h2>
+    <div class="cart__container"></div>
+    <div class="cart__prices">
+      <span class="cart__prices-item">0 items</span>
+      <span class="cart__prices-total">$0.00</span>
+    </div>
+    <button class="button" style="width:100%;margin-top:15px" onclick="placeOrder()">PLACE ORDER</button>
+  </div>
+
+  <main class="main">
+    <section class="product-detail section container">
+      <a class="product-detail__back" href="index.html"><i class='bx bx-left-arrow-alt'></i> Back to catalog</a>
+      <div class="product-detail__container">
+        <div>
+          <img id="pd-image" class="product-detail__img" src="assets/img/product1.png" alt="Product image" />
+        </div>
+        <div>
+          <h1 id="pd-title" class="product-detail__title">Product</h1>
+          <div class="product-detail__meta">
+            <span id="pd-price" class="product-detail__price">$0.00</span>
+          </div>
+          <div id="pd-badges" class="product-detail__badges"></div>
+          <p id="pd-desc" class="product-detail__desc">High quality watch with premium materials and timeless design.</p>
+          <div class="product-specs">
+            <h4>Specifications</h4>
+            <ul id="pd-specs">
+              <li>Case: Stainless steel</li>
+              <li>Movement: Automatic</li>
+              <li>Water resistance: 50m</li>
+              <li>Crystal: Sapphire</li>
+            </ul>
+          </div>
+          <button id="pd-add" class="button">ADD TO CART</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <a href="#" class="scrollup" id="scroll-up"><i class='bx bx-up-arrow-alt scrollup__icon'></i></a>
+
+  <script src="assets/js/swiper-bundle.min.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script>
+    (function(){
+      const params = new URLSearchParams(location.search);
+      const id = params.get('id');
+      let product = null;
+
+      const REG_KEY = 'catalog_registry_v1';
+      const localReg = JSON.parse(localStorage.getItem(REG_KEY) || '[]');
+      if(id){ product = localReg.find(p => String(p.id) === String(id)) || null; }
+      if(!product){
+        try{ product = JSON.parse(localStorage.getItem('last_clicked_product')||'null') }catch(e){ product = null }
+      }
+
+      const defaults = {
+        specs: { case: 'Stainless steel', movement: 'Automatic', water: '50m', crystal: 'Sapphire' },
+        badges: []
+      };
+
+      function setText(id, val){ const el = document.getElementById(id); if(el) el.textContent = val; }
+      function setSrc(id, val){ const el = document.getElementById(id); if(el) el.src = val; }
+
+      if(product){
+        setText('pd-title', product.title || 'Product');
+        if(product.price != null){ setText('pd-price', '$' + (parseFloat(product.price)||0).toFixed(2)); }
+        setText('pd-desc', product.description || '');
+        setSrc('pd-image', product.image || 'assets/img/product1.png');
+
+        const badges = Array.isArray(product.badges) ? product.badges : (defaults.badges||[]);
+        const badgesWrap = document.getElementById('pd-badges');
+        if(badgesWrap){
+          badgesWrap.innerHTML = '';
+          badges.forEach(b => { const s = document.createElement('span'); s.className = 'badge'; s.textContent = b; badgesWrap.appendChild(s); });
+        }
+
+        const specs = Object.assign({}, defaults.specs, product.specs||{});
+        const ul = document.getElementById('pd-specs');
+        if(ul){
+          ul.innerHTML = '';
+          [ ['Case', specs.case], ['Movement', specs.movement], ['Water resistance', specs.water], ['Crystal', specs.crystal] ]
+            .forEach(([k,v])=>{ const li = document.createElement('li'); li.textContent = k + ': ' + (v||''); ul.appendChild(li); });
+        }
+      }
+
+      const addBtn = document.getElementById('pd-add');
+      if(addBtn){
+        addBtn.addEventListener('click', function(){
+          const stub = document.createElement('article');
+          stub.innerHTML = `
+            <img src="${(product && product.image) || 'assets/img/product1.png'}" />
+            <h1>${(product && product.title) || 'Product'}</h1>
+            <span class="products__price">${(product && product.price) || 0}</span>
+          `;
+          if(typeof addToCartFromElement === 'function'){
+            addToCartFromElement(stub);
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
